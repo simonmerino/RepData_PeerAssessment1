@@ -1,25 +1,116 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template.Rmd"
+author: "Simon Merino"
+date: "12 de noviembre de 2016"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Week 2 Assignment
+
+This is the R Markdown document needed for Week 2 assignment
 
 ## Loading and preprocessing the data
 
+This is the code that loads the data from the provided url
+
+```{r libraries, message=FALSE, warning=FALSE, echo=FALSE}
+# Load and preprocess the data
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+```
+
+``` {r loading}
+
+url="https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(url,"./activity.zip")
+
+unzip("./activity.zip")
+
+```
 
 
 ## What is mean total number of steps taken per day?
 
+```{r mean_total_number_steps}
+#What is mean total number of steps taken per day?
+prueba<-read.csv("activity.csv")
+porfecha<-group_by(prueba,date)
+pasospordia<-summarize(porfecha,step_per_day=sum(steps))
+hist(pasospordia$step_per_day, breaks=15)
+
+#median and average
+median(pasospordia$step_per_day ,na.rm= TRUE)
+mean(pasospordia$step_per_day ,na.rm= TRUE)
+
+```
 
 
 ## What is the average daily activity pattern?
 
+```{r average_daily_activity_pattern}
+#What is the average daily activity pattern? Plot it!
+pasosporrop<-group_by(prueba, interval)
+average_daily_activity_pattern<-summarize(pasosporrop, activity=mean(steps, na.rm = TRUE))
+with(average_daily_activity_pattern, plot(interval,activity, type="l"))
 
+# 5-minute interval with maximum number of steps on average
+ordered<-arrange(average_daily_activity_pattern, -activity)
+ordered[1,1]
+```
 
 ## Imputing missing values
+``` {r imputting_missing_values}
+#Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+sum(is.na(prueba$steps))
 
+
+
+
+#Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
+
+newdata<-prueba
+for (i in 1:nrow(newdata)){
+  if (is.na(newdata$steps[i])){
+    newdata$steps[i]<-as.numeric(select(filter(average_daily_activity_pattern,interval==newdata$interval[i]), activity))
+    
+  }
+}
+
+porfechacorregido<-group_by(newdata,date)
+pasospordiacorregido<-summarize(porfechacorregido,step_per_day=sum(steps))
+hist(pasospordiacorregido$step_per_day, breaks=15)
+
+mean(newdata$steps)
+median(newdata$steps)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+
+``` {r weekly_pattern}
+# Are there differences in activity patterns between weekdays and weekends?
+for (i in 1:nrow(newdata)){
+  if (weekdays(ymd(newdata$date[i])) %in% c("domingo","sabado")){
+    newdata$weekday[i]<-"weekend"
+  }else{
+    newdata$weekday[i]<-"weekday"
+  }
+}
+
+newdata$weekday<-as.factor(newdata$weekday)
+#Make a panel plot containing a time series plot (i.e. type = “l”) of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).
+
+#porfecha_corregido<-group_by(newdata,interval)
+#pasospordia_corregido<-summarize(porfecha_corregido,step_per_day=sum(steps))
+steps_per_day <- aggregate(steps ~ interval+weekday, newdata, mean)
+
+#ggplot(pasospordia_corregido, aes(step_per_day,interval))+geom_line()+facet_grid(.~weekday)
+qplot(interval, steps, data=steps_per_day, geom=c("line"), xlab="Interval", 
+      ylab="Number of steps", main="") + facet_wrap(~ weekday, ncol=1)
+```
